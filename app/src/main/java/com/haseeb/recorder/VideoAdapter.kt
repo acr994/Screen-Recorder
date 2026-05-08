@@ -1,8 +1,11 @@
 package com.haseeb.recorder
 
+import android.app.RecoverableSecurityException
 import android.content.ContentValues
 import android.content.Intent
+import android.content.IntentSender
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -25,6 +28,9 @@ import java.util.Locale
  * Implements Material 3 Expressive styling and efficient list updates.
  */
 class VideoAdapter : ListAdapter<VideoFile, ListItemViewHolder>(VideoDiffCallback()) {
+    private companion object {
+        const val REQUEST_DELETE_VIDEO = 1001
+    }
 
     /**
      * Inflates the item layout and creates the ViewHolder.
@@ -168,18 +174,61 @@ class VideoAdapter : ListAdapter<VideoFile, ListItemViewHolder>(VideoDiffCallbac
             .setTitle(context.getString(R.string.VideoAdapter_dialog_delete_title))
             .setMessage(context.getString(R.string.VideoAdapter_dialog_delete_msg))
             .setPositiveButton(context.getString(R.string.VideoAdapter_btn_delete)) { _, _ ->
-                try {
-                    val rowsDeleted = context.contentResolver.delete(video.uri, null, null)
-                    if (rowsDeleted <= 0 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                        val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(video.uri))
-                        (context as AppCompatActivity).startIntentSenderForResult(pendingIntent.intentSender, 1001, null, 0, 0, 0)
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(context, context.getString(R.string.VideoAdapter_toast_delete_failed), Toast.LENGTH_SHORT).show()
-                }
+                deleteVideo(video, context)
             }
             .setNegativeButton(context.getString(R.string.VideoAdapter_btn_cancel), null)
             .show()
+    }
+
+    private fun deleteVideo(video: VideoFile, context: android.content.Context) {
+        try {
+            val rowsDeleted = context.contentResolver.delete(video.uri, null, null)
+            if (rowsDeleted <= 0) requestSystemDelete(video, context)
+        } catch (securityException: SecurityException) {
+            val requestStarted = requestSystemDeleteAfterSecurityException(securityException, video, context)
+            if (!requestStarted) showDeleteFailedToast(context)
+        } catch (e: Exception) {
+            showDeleteFailedToast(context)
+        }
+    }
+
+    private fun requestSystemDeleteAfterSecurityException(
+        securityException: SecurityException,
+        video: VideoFile,
+        context: android.content.Context
+    ): Boolean {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> requestSystemDelete(video, context)
+            Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && securityException is RecoverableSecurityException -> {
+                launchIntentSender(context, securityException.userAction.actionIntent.intentSender)
+            }
+            else -> false
+        }
+    }
+
+    private fun requestSystemDelete(video: VideoFile, context: android.content.Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+
+        return try {
+            val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(video.uri))
+            launchIntentSender(context, pendingIntent.intentSender)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun launchIntentSender(context: android.content.Context, intentSender: IntentSender): Boolean {
+        val activity = context as? AppCompatActivity ?: return false
+        return try {
+            activity.startIntentSenderForResult(intentSender, REQUEST_DELETE_VIDEO, null, 0, 0, 0)
+            true
+        } catch (e: IntentSender.SendIntentException) {
+            false
+        }
+    }
+
+    private fun showDeleteFailedToast(context: android.content.Context) {
+        Toast.makeText(context, context.getString(R.string.VideoAdapter_toast_delete_failed), Toast.LENGTH_SHORT).show()
     }
 
     /**
