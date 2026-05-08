@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -10,8 +11,8 @@ android {
         applicationId = "com.haseeb.recorder"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "3.1"
+        versionCode = 6
+        versionName = "4.0"
     }
 
     dependenciesInfo {
@@ -32,6 +33,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     buildFeatures {

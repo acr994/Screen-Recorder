@@ -1,2 +1,5 @@
-• Redesigned app structure matching Samsung's One UI 8.5 aesthetics.
-• Added a true pitch-black theme and updated control pill icons.
+v3.1 comeback release:
+- Reworked the app by hand with cleaner Kotlin/Gradle structure.
+- Refined User-interface with a true google's material theme.
+- Updated floating control pill icons and recording controls.
+- Fixed known recording, permission, and UI state issues for a more stable release.
